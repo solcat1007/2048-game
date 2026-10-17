@@ -1,0 +1,19 @@
+{
+  "name": "2048 · 小工具",
+  "short_name": "2048",
+  "description": "滑动合并相同数字，挑战 2048",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f7f9",
+  "theme_color": "#edc22e",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

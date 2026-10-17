@@ -2,125 +2,365 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>数字2048 | 2048 Puzzle</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>2048 · 数字合并游戏</title>
+<meta name="description" content="滑动合并相同数字，挑战 2048，支持键盘与触摸操作">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg">
+<meta name="theme-color" content="#edc22e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="2048">
 <style>
+
+:root{
+  --bg:#f4f5f7;           /* 页面底色：浅灰，避免纯白刺眼 */
+  --bg-glow:#ffffff;      /* 顶部径向光晕色，制造轻微的空间感 */
+  --surface:#ffffff;      /* 卡片底色 */
+  --surface-2:#fafbfc;    /* 卡片内的次级区块（输入框、结果区） */
+  --text:#16181d;         /* 主文字 */
+  --soft:#5d636e;         /* 次要文字 */
+  --mute:#8b929e;         /* 弱化文字（提示、单位、占位符） */
+  --line:#e6e8ec;         /* 分割线与边框 */
+  --accent:#26a69a;       /* 强调色（各玩具不同） */
+  --accent-soft:#e6f4f2;  /* 强调色的浅色版，用于底色块 */
+  --r-lg:20px; --r-md:14px; --r-sm:10px;
+  --ease:cubic-bezier(.4,0,.2,1);
+  --shadow:0 1px 2px rgba(16,24,40,.04), 0 8px 24px rgba(16,24,40,.06);
+}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:#fff;color:#333;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;user-select:none;touch-action:none}
-.lang-btn{position:fixed;top:16px;left:16px;background:transparent;border:2px solid #00BCD4;color:#00BCD4;font-size:12px;font-weight:700;padding:6px 12px;border-radius:4px;cursor:pointer;z-index:10;letter-spacing:1px}
-.lang-btn:hover{background:#00BCD4;color:#fff}
-.fullscreen-btn{position:fixed;top:16px;right:16px;background:#00BCD4;color:#fff;border:none;font-size:12px;font-weight:700;padding:6px 12px;border-radius:4px;cursor:pointer;z-index:10;font-family:inherit}
-.fullscreen-btn:hover{background:#0097A7}
-.main{display:flex;flex-direction:column;align-items:center;gap:16px}
-.score-panel{display:flex;gap:24px;align-items:center}
-.score-box{text-align:center}
-.score-label{font-size:11px;color:#aaa;letter-spacing:2px;text-transform:uppercase}
-.score-value{font-size:28px;font-weight:300;color:#00BCD4;letter-spacing:2px}
-.new-btn{background:transparent;border:2px solid #00BCD4;color:#00BCD4;font-size:13px;font-weight:700;padding:8px 20px;border-radius:6px;cursor:pointer;letter-spacing:1px;transition:all .2s}
-.new-btn:hover{background:#00BCD4;color:#fff}
-.grid-container{position:relative}
-canvas{border-radius:8px}
-.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.85);border-radius:8px;flex-direction:column;gap:12px;display:none}
-.overlay.show{display:flex}
-.overlay-text{font-size:28px;font-weight:300;color:#00BCD4;letter-spacing:3px}
-.overlay-sub{font-size:13px;color:#999;letter-spacing:1px}
-.overlay-btn{background:#00BCD4;color:#fff;border:none;font-size:14px;font-weight:700;padding:10px 32px;border-radius:6px;cursor:pointer;letter-spacing:2px;margin-top:8px}
-.overlay-btn:hover{opacity:.85}
-.hint{font-size:11px;color:#ccc;letter-spacing:1px;text-align:center}
+
+body{
+  font-family:system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+  background:var(--bg);
+  /* 顶部一层极淡光晕，比死板的纯色更有层次 */
+  background-image:radial-gradient(120% 80% at 50% 0%, var(--bg-glow) 0%, rgba(255,255,255,0) 62%);
+  background-attachment:fixed;
+  color:var(--text);
+  min-height:100dvh;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:24px; -webkit-font-smoothing:antialiased;
+}
+
+.app{width:100%; max-width:480px; display:flex; flex-direction:column; align-items:center; gap:20px}
+
+.head{text-align:center}
+.head h1{font-size:22px; font-weight:600; letter-spacing:.5px}
+.head p{font-size:13px; color:var(--mute); margin-top:6px}
+
+.card{
+  width:100%; background:var(--surface); border:1px solid var(--line);
+  border-radius:var(--r-lg); padding:22px; box-shadow:var(--shadow);
+}
+
+.stage{
+  width:288px; height:288px; position:relative;
+  background:var(--surface); border:1px solid var(--line);
+  border-radius:50%; box-shadow:var(--shadow);
+  display:flex; align-items:center; justify-content:center;
+}
+.stage canvas{border-radius:50%}
+
+.phase{
+  font-size:29px; font-weight:300; letter-spacing:6px;
+  color:var(--accent); min-height:42px; text-align:center;
+  transition:color .4s var(--ease);
+}
+.cd{font-size:15px; color:var(--soft); font-variant-numeric:tabular-nums; min-height:22px}
+.meta{font-size:13px; color:var(--mute); min-height:20px; text-align:center}
+
+.row{display:flex; gap:10px; flex-wrap:wrap; justify-content:center}
+.stats{display:flex; gap:10px; width:100%}
+.stat{
+  flex:1; background:var(--surface-2); border:1px solid var(--line);
+  border-radius:var(--r-md); padding:12px; text-align:center;
+}
+.stat .k{font-size:11px; color:var(--mute); letter-spacing:1px}
+.stat .v{font-size:21px; font-weight:600; margin-top:3px; font-variant-numeric:tabular-nums}
+
+.chip{
+  padding:9px 18px; font-size:13px; font-weight:500; font-family:inherit;
+  background:var(--surface); color:var(--soft);
+  border:1px solid var(--line); border-radius:999px; cursor:pointer;
+  transition:all .2s var(--ease);
+}
+.chip:hover{border-color:var(--accent); color:var(--accent)}
+.chip.active{
+  background:var(--accent); border-color:var(--accent); color:#fff;
+  box-shadow:0 4px 14px rgba(0,0,0,.14);
+}
+
+.btn{
+  padding:13px 42px; font-size:15px; font-weight:600; font-family:inherit;
+  letter-spacing:3px; background:var(--accent); color:#fff;
+  border:none; border-radius:var(--r-md); cursor:pointer;
+  transition:transform .15s var(--ease), box-shadow .2s var(--ease);
+  box-shadow:0 6px 20px rgba(0,0,0,.16);
+}
+.btn:hover{transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn.ghost{background:transparent; border:1px solid var(--line); color:var(--soft); box-shadow:none}
+
+.lang{
+  position:fixed; top:16px; right:16px; z-index:20;
+  padding:7px 14px; font-size:12px; font-weight:600; font-family:inherit;
+  background:var(--surface); color:var(--soft);
+  border:1px solid var(--line); border-radius:999px; cursor:pointer;
+  transition:all .2s var(--ease);
+}
+.lang:hover{border-color:var(--accent); color:var(--accent)}
+
+.hint{font-size:12px; color:var(--mute); text-align:center; line-height:1.7}
+
+@media (max-width:380px){
+  .stage{width:250px;height:250px}
+  .phase{font-size:25px; letter-spacing:4px}
+}
+
+:root{ --accent:#edc22e; --accent-soft:#fdf6dc; }
+
+.grid{width:100%;aspect-ratio:1;display:grid;grid-template-columns:repeat(4,1fr);gap:9px;
+  background:#bbada0;border-radius:var(--r-md);padding:9px}
+.cell{background:rgba(238,228,218,.35);border-radius:8px;display:flex;align-items:center;
+  justify-content:center;font-size:26px;font-weight:700;color:#776e65;
+  transition:transform .12s var(--ease), background .15s var(--ease)}
+.cell.v2{background:#eee4da}.cell.v4{background:#ede0c8}.cell.v8{background:#f2b179;color:#f9f6f2}
+.cell.v16{background:#f59563;color:#f9f6f2}.cell.v32{background:#f67c5f;color:#f9f6f2}
+.cell.v64{background:#f65e3b;color:#f9f6f2}.cell.v128{background:#edcf72;color:#f9f6f2;font-size:22px}
+.cell.v256{background:#edcc61;color:#f9f6f2;font-size:22px}
+.cell.v512{background:#edc850;color:#f9f6f2;font-size:22px}
+.cell.v1024{background:#edc53f;color:#f9f6f2;font-size:18px}
+.cell.v2048{background:#edc22e;color:#f9f6f2;font-size:18px}
+
 </style>
 </head>
 <body>
-<button class="lang-btn" onclick="toggleLang()" id="langBtn">中/EN</button>
-<button class="fullscreen-btn" onclick="toggleFullscreen()" id="fsBtn">全屏</button>
-<div class="main">
-  <div class="score-panel">
-    <div class="score-box"><div class="score-label" id="scoreLabel" data-key="score">SCORE</div><div class="score-value" id="scoreVal">0</div></div>
-    <div class="score-box"><div class="score-label" id="bestLabel" data-key="best">BEST</div><div class="score-value" id="bestVal">0</div></div>
-    <button class="new-btn" id="newBtn" onclick="newGame()" data-key="newGame">新游戏</button>
+<button class="lang" id="langBtn" onclick="toggleLang()">EN</button>
+<div class="app">
+
+  <div class="head">
+    <h1 id="t_title">2048</h1>
+    <p id="t_sub">滑动合并相同的数字</p>
   </div>
-  <div class="grid-container">
-    <canvas id="canvas" width="360" height="360"></canvas>
-    <div class="overlay" id="overlay">
-      <div class="overlay-text" id="overlayText">Game Over</div>
-      <div class="overlay-sub" id="overlaySub"></div>
-      <button class="overlay-btn" id="overlayBtn" onclick="newGame()" data-key="restart">重新开始</button>
+
+  <div class="card">
+    <div class="stats">
+      <div class="stat"><div class="k" id="t_score">分数</div><div class="v" id="vScore">0</div></div>
+      <div class="stat"><div class="k" id="t_best">最高</div><div class="v" id="vBest">0</div></div>
     </div>
   </div>
-  <div class="hint" id="hint" data-key="hint">方向键 / 滑动操作</div>
+
+  <div class="card">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="meta" id="over" style="display:none"></div>
+
+  <div class="row">
+    <button class="btn" onclick="newGame()">新游戏</button>
+  </div>
+
+  <div class="hint" id="t_hint">方向键 或 WASD 移动，手机可直接滑动</div>
+
 </div>
 <script>
-let lang='zh';
-const L={
-zh:{score:'分数',best:'最佳',newGame:'新游戏',gameOver:'游戏结束',youWin:'恭喜！',restart:'重新开始',hint:'方向键 / 滑动操作'},
-en:{score:'Score',best:'Best',newGame:'New Game',gameOver:'Game Over',youWin:'You Win!',restart:'Restart',hint:'Arrow Keys / Swipe'}
-};
-function t(k){return L[lang][k]||k}
-function toggleLang(){lang=lang==='zh'?'en':'zh';updateTexts()}
-function updateTexts(){
-  document.querySelectorAll('[data-key]').forEach(el=>{let k=el.getAttribute('data-key');if(L[lang][k])el.textContent=L[lang][k]});
-  if(gameOver){document.getElementById('overlayText').textContent=won?t('youWin'):t('gameOver')}
+
+/* ============================================================
+ * 2048
+ * ------------------------------------------------------------
+ * 数据结构：grid 是一维数组，长度 16，索引 = row*4 + col。
+ *  用一维而非二维，是因为滑动操作本质是「对每一行/每一列做线性处理」，
+ *  一维数组配合索引运算写起来更简洁。
+ *
+ * 滑动算法（以向左为例，其他方向通过旋转/反转复用同一套逻辑）：
+ *   1. 去掉空格（压缩）
+ *   2. 相邻且相同 → 合并，值翻倍，只合并一次
+ *   3. 再压缩一次，右侧补 0
+ * ========================================================== */
+
+const SIZE = 4;
+let grid = [];
+let score = 0;
+let best = 0;
+let over = false;
+
+/* ---------- 存档：最高分持久化到 localStorage ---------- */
+function loadBest(){
+  try { return parseInt(localStorage.getItem('g2048_best')||'0',10)||0; }
+  catch(e){ return 0; }        /* 隐私模式下 localStorage 可能抛异常，兜底返回 0 */
 }
-function toggleFullscreen(){
-  if(!document.fullscreenElement&&!document.webkitFullscreenElement){let e=document.documentElement;e.requestFullscreen?e.requestFullscreen():e.webkitRequestFullscreen()}else{document.exitFullscreen?document.exitFullscreen():document.webkitExitFullscreen()}
+function saveBest(){
+  try { localStorage.setItem('g2048_best', String(best)); } catch(e){}
 }
-const SIZE=4,canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d');
-const cellSize=80,gap=8,pad=12,cellR=6;
-let board=[],score=0,best=0,gameOver=false,won=false;
-function initBoard(){board=Array.from({length:SIZE},()=>Array(SIZE).fill(0));score=0;gameOver=false;won=false;document.getElementById('overlay').classList.remove('show');addRandom();addRandom();updateScore();draw()}
-function addRandom(){let empty=[];for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++)if(board[r][c]===0)empty.push([r,c]);if(empty.length===0)return;let[r,c]=empty[Math.floor(Math.random()*empty.length)];board[r][c]=Math.random()<0.9?2:4}
-function updateScore(){document.getElementById('scoreVal').textContent=score;if(score>best){best=score;document.getElementById('bestVal').textContent=best;try{localStorage.setItem('2048_best',best)}catch(e){}}}
-function draw(){
-  ctx.fillStyle='#f0f8f9';roundRect(0,0,360,360,10);ctx.fill();
-  for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
-    let x=pad+c*(cellSize+gap),y=pad+r*(cellSize+gap),v=board[r][c];
-    ctx.fillStyle=v===0?'#f0f8f9':getBgColor(v);roundRect(x,y,cellSize,cellSize,cellR);ctx.fill();
-    if(v!==0){
-      ctx.fillStyle=v<=4?'#666':'#fff';ctx.font=(v>=1024?'22px':'28px')+' "SF Pro Display","Helvetica Neue",Arial,sans-serif';
-      ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(v,x+cellSize/2,y+cellSize/2)}
-  }
+
+/* ---------- 初始化 ---------- */
+function newGame(){
+  grid = new Array(SIZE*SIZE).fill(0);
+  score = 0; over = false;
+  addRandom(); addRandom();
+  render();
 }
-function getBgColor(v){let colors={2:'#e0f7fa',4:'#b2ebf2',8:'#80deea',16:'#4dd0e1',32:'#26c6da',64:'#00BCD4',128:'#00acc1',256:'#0097a7',512:'#00838f',1024:'#006064',2048:'#004d40'};return colors[v]||'#00251a'}
-function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath()}
-function move(dir){
-  if(gameOver)return;
-  let old=board.map(r=>[...r]),moved=false,merged=Array.from({length:SIZE},()=>Array(SIZE).fill(false));
-  function slide(arr){
-    let res=[],skip=false;
-    for(let i=0;i<arr.length;i++){
-      if(arr[i]===0)continue;
-      if(res.length>0&&res[res.length-1]===arr[i]&&!skip){
-        res[res.length-1]*=2;score+=res[res.length-1];skip=true;
-        if(res[res.length-1]===2048)won=true
-      }else{res.push(arr[i]);skip=false}
-    }while(res.length<arr.length)res.push(0);return res
-  }
-  for(let i=0;i<SIZE;i++){
-    let line=[];
-    for(let j=0;j<SIZE;j++)line.push(dir==='left'?board[i][j]:dir==='right'?board[i][SIZE-1-j]:dir==='up'?board[j][i]:board[SIZE-1-j][i]);
-    if(dir==='right'||dir==='down')line.reverse();
-    let merged_line=slide(line);
-    if(dir==='right'||dir==='down')merged_line.reverse();
-    for(let j=0;j<SIZE;j++){
-      let val=merged_line[j],nr=dir==='left'||dir==='right'?i:j,nc=dir==='left'||dir==='right'?j:i;
-      if(dir==='right')nc=SIZE-1-j;if(dir==='down')nr=SIZE-1-j;
-      if(board[nr][nc]!==val)moved=true;board[nr][nc]=val
+
+/** 在随机空位生成新块（90% 概率 2，10% 概率 4，与官方一致） */
+function addRandom(){
+  const empty = [];
+  for (let i=0;i<grid.length;i++) if (grid[i]===0) empty.push(i);
+  if (!empty.length) return;
+  const idx = empty[Math.floor(Math.random()*empty.length)];
+  grid[idx] = Math.random() < 0.9 ? 2 : 4;
+}
+
+/* ---------- 滑动核心 ---------- */
+
+/**
+ * 处理一行（4 个格子）向左合并
+ * @param {number[]} line 长度为 4 的数组
+ * @returns {{line:number[], gained:number}} 合并后的行与本次得分
+ */
+function mergeLine(line){
+  // 第 1 步：压缩，去掉 0
+  let arr = line.filter(v => v !== 0);
+  let gained = 0;
+
+  // 第 2 步：相邻相同则合并
+  const out = [];
+  for (let i=0;i<arr.length;i++){
+    if (i+1 < arr.length && arr[i] === arr[i+1]){
+      const merged = arr[i]*2;
+      out.push(merged);
+      gained += merged;
+      i++;                     /* 跳过已合并的下一个，保证一次滑动只合并一次 */
+    } else {
+      out.push(arr[i]);
     }
   }
-  if(moved){addRandom();updateScore();draw();checkGameOver();if(won&&!gameOver){document.getElementById('overlayText').textContent=t('youWin');document.getElementById('overlaySub').textContent='';document.getElementById('overlay').classList.add('show')}}
+  // 第 3 步：右侧补 0
+  while (out.length < SIZE) out.push(0);
+  return { line: out, gained };
 }
-function checkGameOver(){
-  for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){if(board[r][c]===0)return;if(c<3&&board[r][c]===board[r][c+1])return;if(r<3&&board[r][c]===board[r+1][c])return}
-  gameOver=true;document.getElementById('overlayText').textContent=t('gameOver');document.getElementById('overlaySub').textContent=t('score')+': '+score;document.getElementById('overlay').classList.add('show')}
-function newGame(){initBoard();updateTexts()}
-document.addEventListener('keydown',e=>{let map={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'};if(map[e.key]){e.preventDefault();move(map[e.key])}});
-let touchX=0,touchY=0;
-canvas.addEventListener('touchstart',e=>{touchX=e.touches[0].clientX;touchY=e.touches[0].clientY;e.preventDefault()});
-canvas.addEventListener('touchend',e=>{
-  let dx=e.changedTouches[0].clientX-touchX,dy=e.changedTouches[0].clientY-touchY,absDx=Math.abs(dx),absDy=Math.abs(dy);
-  if(Math.max(absDx,absDy)<20)return;
-  move(absDx>absDy?(dx>0?'right':'left'):(dy>0?'down':'up'))});
-try{let b=localStorage.getItem('2048_best');if(b)best=parseInt(b);document.getElementById('bestVal').textContent=best}catch(e){}
-initBoard();updateTexts();
+
+/** 取出第 r 行 */
+function getRow(r){
+  return [0,1,2,3].map(c => grid[r*SIZE+c]);
+}
+/** 写回第 r 行 */
+function setRow(r, vals){
+  for (let c=0;c<SIZE;c++) grid[r*SIZE+c] = vals[c];
+}
+/** 取出第 c 列 */
+function getCol(c){
+  return [0,1,2,3].map(r => grid[r*SIZE+c]);
+}
+/** 写回第 c 列 */
+function setCol(c, vals){
+  for (let r=0;r<SIZE;r++) grid[r*SIZE+c] = vals[r];
+}
+
+/**
+ * 按方向滑动
+ * @param {string} dir left|right|up|down
+ * @returns {boolean} 棋盘是否发生变化
+ */
+function move(dir){
+  if (over) return false;
+
+  let before = grid.join(',');
+  let gained = 0;
+
+  for (let i=0;i<SIZE;i++){
+    if (dir === 'left'){
+      const res = mergeLine(getRow(i)); setRow(i, res.line); gained += res.gained;
+    } else if (dir === 'right'){
+      // 向右 = 反转 → 向左合并 → 反转回来
+      const res = mergeLine(getRow(i).slice().reverse());
+      setRow(i, res.line.reverse()); gained += res.gained;
+    } else if (dir === 'up'){
+      const res = mergeLine(getCol(i)); setCol(i, res.line); gained += res.gained;
+    } else if (dir === 'down'){
+      const res = mergeLine(getCol(i).slice().reverse());
+      setCol(i, res.line.reverse()); gained += res.gained;
+    }
+  }
+
+  const changed = (grid.join(',') !== before);
+  if (changed){
+    score += gained;
+    if (score > best){ best = score; saveBest(); }
+    addRandom();
+    render();
+    if (!canMove()){ over=true; render(); }
+  }
+  return changed;
+}
+
+/** 是否还能移动（有空位，或存在可合并的相邻块） */
+function canMove(){
+  for (let i=0;i<grid.length;i++) if (grid[i]===0) return true;
+  for (let r=0;r<SIZE;r++){
+    for (let c=0;c<SIZE;c++){
+      const v = grid[r*SIZE+c];
+      if (c+1<SIZE && grid[r*SIZE+c+1]===v) return true;
+      if (r+1<SIZE && grid[(r+1)*SIZE+c]===v) return true;
+    }
+  }
+  return false;
+}
+
+/* ---------- 渲染 ---------- */
+function render(){
+  const g = document.getElementById('grid');
+  g.innerHTML = '';
+  grid.forEach(function(v){
+    const d = document.createElement('div');
+    d.className = 'cell' + (v ? (' v'+v) : '');
+    d.textContent = v || '';
+    g.appendChild(d);
+  });
+  document.getElementById('vScore').textContent = score;
+  document.getElementById('vBest').textContent = best;
+  const ov = document.getElementById('over');
+  ov.style.display = over ? 'block' : 'none';
+  ov.textContent = over ? I18N[lang].over + ' · ' + score : '';
+}
+
+/* ---------- 输入：键盘 ---------- */
+document.addEventListener('keydown', function(e){
+  const map = {
+    ArrowLeft:'left', ArrowRight:'right', ArrowUp:'up', ArrowDown:'down',
+    a:'left', d:'right', w:'up', s:'down',
+    A:'left', D:'right', W:'up', S:'down'
+  };
+  const dir = map[e.key];
+  if (dir){ e.preventDefault(); move(dir); }
+});
+
+/* ---------- 输入：触摸滑动 ----------
+ * 记录起始点与结束点，比较水平/垂直位移谁更大来判断方向。
+ * 阈值设 24px，小于这个距离视为误触。 */
+let tx=0, ty=0;
+const gridEl = document.getElementById('grid');
+gridEl.addEventListener('touchstart', function(e){
+  tx = e.touches[0].clientX; ty = e.touches[0].clientY;
+}, {passive:true});
+gridEl.addEventListener('touchend', function(e){
+  const dx = e.changedTouches[0].clientX - tx;
+  const dy = e.changedTouches[0].clientY - ty;
+  if (Math.max(Math.abs(dx),Math.abs(dy)) < 24) return;
+  if (Math.abs(dx) > Math.abs(dy)) move(dx>0?'right':'left');
+  else                             move(dy>0?'down':'up');
+}, {passive:true});
+
+/* ---------- 启动 ---------- */
+best = loadBest();
+newGame();
+
+/* ---------- PWA 注册 ----------
+ * 注册 Service Worker 后本页被缓存，断网也能打开。
+ * 放在最后且 catch 掉异常：即使浏览器不支持也不影响正常功能。 */
+if ('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./sw.js').catch(function(){});
+  });
+}
 </script>
 </body>
 </html>
