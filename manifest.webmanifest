@@ -1,7 +1,7 @@
 {
-  "name": "2048 · 小工具",
+  "name": "2048 · v2.0",
   "short_name": "2048",
-  "description": "滑动合并相同数字，挑战 2048",
+  "description": "2048 v2.0：撤销一步、四套主题、合并动画、最高分、自动存档与键盘/触控双操作",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -15,5 +15,6 @@
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "version": "2.0.0"
 }
